@@ -8,6 +8,11 @@ AI-powered knowledge base: links & notes -> auto-categorized graph + quiz mode
 знания пользователя в режиме **«Квиз»**, где ИИ генерирует вопросы по
 сохранённому материалу и оценивает ответы.
 
+Это полностью статичное **клиентское** (browser-only) приложение — нет
+своего бэкенда. Запросы к Anthropic API уходят прямо из браузера пользователя.
+Ключ API вводится один раз в настройках и хранится только в `localStorage`
+этого браузера.
+
 ## Возможности
 
 - **Ввод материала** — вставляешь ссылки и заметки построчно (по одной на
@@ -22,60 +27,72 @@ AI-powered knowledge base: links & notes -> auto-categorized graph + quiz mode
   вызов модели с частичным начислением баллов и объяснением, в конце —
   итоговый счёт.
 
-## Архитектура
-
-```
-client/   Vite + React + TypeScript SPA (граф, квиз, ввод)
-server/   Express API, вызывает Anthropic API через tool-use (принудительный
-          structured JSON вместо парсинга свободного текста)
-```
-
-Взаимодействие с ИИ идёт только через сервер (ключ API никогда не попадает в
-браузер). Все структурированные ответы модели (категории/граф, вопросы квиза,
-оценка ответа) получаются через forced tool-use в Anthropic Messages API —
-это надёжнее, чем просить модель вернуть "просто JSON" в тексте.
-
 ## Быстрый старт
 
-Требуется Node.js 18+ и ключ Anthropic API ([console.anthropic.com](https://console.anthropic.com/)).
+Требуется Node.js 18+ и ключ Anthropic API ([console.anthropic.com](https://console.anthropic.com/settings/keys)).
 
 ```bash
-# 1. Установить зависимости (клиент + сервер)
-npm run install:all
-
-# 2. Настроить ключ API
-cp server/.env.example server/.env
-# и вписать туда ANTHROPIC_API_KEY=...
-
-# 3. Запустить сервер и клиент одновременно
-npm run dev
+npm run install:all   # установка зависимостей клиента
+npm run dev           # http://localhost:5173
 ```
 
-Клиент откроется на http://localhost:5173 (Vite dev-сервер проксирует запросы
-`/api/*` на сервер, который слушает http://localhost:8787).
+При первом открытии приложение попросит вставить API-ключ (и, по желанию,
+свой Base URL/модель) — экран настроек доступен в любой момент по значку ⚙
+в правом верхнем углу.
+
+## Доступ для пользователей из России
+
+`api.anthropic.com` официально недоступен напрямую из России, а привязать
+российскую банковскую карту к аккаунту Anthropic обычно тоже не получится.
+Раз всё приложение работает в браузере без отдельного сервера, для доступа
+есть несколько вариантов:
+
+1. **VPN.** Самый простой способ — пользоваться приложением через VPN
+   (и там же оформить/пополнять аккаунт Anthropic). Поле Base URL в
+   настройках можно оставить пустым.
+2. **Свой прокси-эндпоинт.** Если есть доступ к прокси/шлюзу, который
+   зеркалирует Anthropic Messages API (например, self-hosted reverse proxy
+   на сервере за пределами РФ, либо один из сторонних сервисов, что
+   предоставляют Anthropic-совместимый API с оплатой российской картой) —
+   впиши его адрес в поле **Base URL** в настройках. Приложение обратится
+   именно туда вместо `api.anthropic.com`.
+3. **Задеплоить статику на хостинг вне РФ** (Vercel/Netlify/GitHub Pages —
+   `npm run build` в `client/` даёт обычный статический сайт). Само по себе
+   это не обходит блокировку Anthropic API, но полезно, если внутри РФ
+   заблокирован сам сайт приложения, а не только Anthropic — тогда до
+   Anthropic всё равно нужен VPN или прокси из пункта 2.
+
+Ключ и Base URL хранятся только локально в браузере — если сменить прокси
+или account, просто обнови значения в настройках.
 
 ## Скрипты
 
 | Команда                | Что делает                                      |
 | ----------------------- | ------------------------------------------------ |
-| `npm run install:all`   | установка зависимостей client + server           |
-| `npm run dev`           | запуск обоих серверов разработки (concurrently)  |
-| `npm run build`         | production-сборка server (tsc) и client (vite)  |
-| `npm run typecheck`     | проверка типов в обоих проектах                  |
+| `npm run install:all`   | установка зависимостей клиента                   |
+| `npm run dev`           | Vite dev-сервер на http://localhost:5173         |
+| `npm run build`         | production-сборка (typecheck + vite build)       |
+| `npm run typecheck`     | проверка типов                                   |
 
-## Переменные окружения (`server/.env`)
+## Архитектура
 
 ```
-ANTHROPIC_API_KEY=your-api-key-here
-ANTHROPIC_MODEL=claude-sonnet-5   # опционально, модель по умолчанию
-PORT=8787                          # опционально
+client/   Vite + React + TypeScript SPA
+  src/anthropicClient.ts  — обёртка над @anthropic-ai/sdk (dangerouslyAllowBrowser),
+                            настраиваемый baseURL для прокси
+  src/settings.ts         — хранение ключа/baseURL/модели в localStorage
+  src/schemas.ts          — JSON-схемы для forced tool-use (категоризация,
+                            генерация квиза, оценка ответа)
+  src/api.ts              — вызовы Anthropic для анализа/квиза/грейдинга
+  src/components/         — UI: ввод, граф, квиз, настройки
 ```
 
-## API
+Все структурированные ответы модели (категории/граф, вопросы квиза, оценка
+ответа) получаются через forced tool-use в Anthropic Messages API — это
+надёжнее, чем просить модель вернуть "просто JSON" в тексте.
 
-- `POST /api/analyze` — `{ items: { id, raw }[] }` → категории, элементы с
-  заголовком/summary/категорией, рёбра графа.
-- `POST /api/quiz/generate` — `{ items: AnalyzedItem[], count? }` → набор
-  вопросов (multiple_choice / open) на основе сохранённого материала.
-- `POST /api/quiz/grade` — `{ question, correctAnswer, userAnswer, explanation }`
-  → `{ correct, score (0..1), feedback }` для открытых вопросов.
+**О безопасности ключа:** т.к. вызовы идут прямо из браузера, ключ API
+присутствует в исходящих запросах и виден в DevTools этого же браузера. Он
+не отправляется никуда, кроме Anthropic (или указанного тобой Base URL), но
+если это чужой/публичный компьютер — используй ключ с ограниченным лимитом
+трат или очищай localStorage после сессии.

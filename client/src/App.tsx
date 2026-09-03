@@ -2,17 +2,26 @@ import { useState } from 'react';
 import InputPanel from './components/InputPanel';
 import GraphView from './components/GraphView';
 import QuizMode from './components/QuizMode';
+import SettingsForm from './components/Settings';
 import { analyzeItems } from './api';
+import { hasApiKey, loadSettings, saveSettings, type AppSettings } from './settings';
 import type { AnalysisResult, AnalyzedItem, RawItem } from './types';
 
-type View = 'input' | 'graph' | 'quiz';
+type View = 'settings' | 'input' | 'graph' | 'quiz';
 
 export default function App() {
-  const [view, setView] = useState<View>('input');
+  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+  const [view, setView] = useState<View>(() => (hasApiKey(loadSettings()) ? 'input' : 'settings'));
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSaveSettings = (next: AppSettings) => {
+    saveSettings(next);
+    setSettings(next);
+    setView('input');
+  };
 
   const handleSubmit = async (rawItems: RawItem[]) => {
     setLoading(true);
@@ -43,6 +52,19 @@ export default function App() {
 
   return (
     <div className="app">
+      {view !== 'settings' && (
+        <button className="gear-button" title="Настройки" onClick={() => setView('settings')}>
+          ⚙
+        </button>
+      )}
+
+      {view === 'settings' && (
+        <SettingsForm
+          initial={settings}
+          onSave={handleSaveSettings}
+          onClose={hasApiKey(settings) ? () => setView('input') : null}
+        />
+      )}
       {view === 'input' && <InputPanel onSubmit={handleSubmit} loading={loading} error={error} />}
       {view === 'graph' && analysis && (
         <GraphView

@@ -127,6 +127,76 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+/* ---------- Settings ---------- */
+.settings-panel {
+  margin: auto;
+  max-width: 560px;
+  width: 100%;
+  padding: 2.5rem;
+}
+
+.settings-panel h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.6rem;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 1rem 0 0.35rem;
+}
+
+.settings-panel input[type='text'],
+.settings-panel input[type='password'] {
+  width: 100%;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.key-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.key-input-row input {
+  flex: 1;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0.4rem 0 0;
+  line-height: 1.4;
+}
+
+.hint a {
+  color: var(--accent);
+}
+
+.gear-button {
+  position: fixed;
+  top: 1rem;
+  right: 1.25rem;
+  z-index: 10;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 50%;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ---------- Graph layout ---------- */
 .graph-layout {
   display: flex;
