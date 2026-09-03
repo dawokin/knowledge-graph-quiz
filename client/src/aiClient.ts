@@ -2,6 +2,7 @@ import { loadSettings } from './settings';
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const DEFAULT_MODEL = 'deepseek-chat';
+const DEFAULT_TIMEOUT_MS = 60_000;
 
 interface ToolCallOptions {
   system: string;
@@ -10,6 +11,7 @@ interface ToolCallOptions {
   toolDescription: string;
   inputSchema: Record<string, unknown>;
   maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export async function callToolForJson<T>(options: ToolCallOptions): Promise<T> {
@@ -20,11 +22,16 @@ export async function callToolForJson<T>(options: ToolCallOptions): Promise<T> {
 
   const baseUrl = (settings.baseUrl.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
   const model = settings.model.trim() || DEFAULT_MODEL;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${settings.apiKey.trim()}`,
@@ -49,11 +56,22 @@ export async function callToolForJson<T>(options: ToolCallOptions): Promise<T> {
         tool_choice: { type: 'function', function: { name: options.toolName } },
       }),
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Запрос к DeepSeek API превысил таймаут (${Math.round(timeoutMs / 1000)}с). Попробуй ещё раз.`);
+    }
+    // fetch throws the same opaque TypeError for a dropped connection and for
+    // a CORS-blocked response - the browser never exposes which one happened.
+    console.error('DeepSeek fetch failed (network error or CORS block):', err);
     throw new Error(
-      'Не удалось соединиться с DeepSeek API. Проверь интернет-соединение, либо, если запрос ' +
-      'блокируется в твоей сети, укажи в настройках свой Base URL (совместимый прокси-эндпоинт).'
+      'Не удалось получить ответ от DeepSeek API. Браузер не различает обрыв сети и блокировку ' +
+        'CORS-политикой - если проблема не в интернет-соединении, вероятная причина в том, что ' +
+        'api.deepseek.com (или указанный тобой Base URL) не отдаёт заголовки Access-Control-Allow-Origin ' +
+        'для прямых запросов из браузера. В таком случае нужен прокси-эндпоинт с настроенным CORS - ' +
+        'укажи его в поле Base URL. Подробности обычно видны во вкладке Network/Console DevTools.'
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok) {
@@ -68,7 +86,16 @@ export async function callToolForJson<T>(options: ToolCallOptions): Promise<T> {
   }
 
   const data = await res.json();
-  const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0];
+  const choice = data?.choices?.[0];
+
+  if (choice?.finish_reason === 'length') {
+    throw new Error(
+      'Ответ модели был обрезан по лимиту токенов (finish_reason: length) - вероятно, слишком много ' +
+        'материала за один раз. Попробуй уменьшить количество ссылок/заметок за один анализ.'
+    );
+  }
+
+  const toolCall = choice?.message?.tool_calls?.[0];
   if (!toolCall?.function?.arguments) {
     throw new Error('Модель не вернула ожидаемый структурированный ответ (tool call).');
   }
@@ -76,6 +103,6 @@ export async function callToolForJson<T>(options: ToolCallOptions): Promise<T> {
   try {
     return JSON.parse(toolCall.function.arguments) as T;
   } catch {
-    throw new Error('Не удалось разобрать JSON-ответ модели.');
+    throw new Error('Не удалось разобрать JSON-ответ модели (возможно, он был обрезан).');
   }
 }

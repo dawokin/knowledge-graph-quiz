@@ -1,20 +1,25 @@
 import { useState } from 'react';
+import { isValidBaseUrl } from '../lib/normalize';
 import type { AppSettings } from '../settings';
 
 interface Props {
   initial: AppSettings;
   onSave: (settings: AppSettings) => void;
+  onDelete: (() => void) | null;
   onClose: (() => void) | null;
 }
 
-export default function Settings({ initial, onSave, onClose }: Props) {
+export default function Settings({ initial, onSave, onDelete, onClose }: Props) {
   const [apiKey, setApiKey] = useState(initial.apiKey);
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl);
   const [model, setModel] = useState(initial.model);
   const [showKey, setShowKey] = useState(false);
 
+  const baseUrlValid = isValidBaseUrl(baseUrl);
+  const canSave = apiKey.trim().length > 0 && baseUrlValid;
+
   const save = () => {
-    if (apiKey.trim().length === 0) return;
+    if (!canSave) return;
     onSave({ apiKey: apiKey.trim(), baseUrl: baseUrl.trim(), model: model.trim() || 'deepseek-chat' });
   };
 
@@ -60,11 +65,16 @@ export default function Settings({ initial, onSave, onClose }: Props) {
         value={baseUrl}
         onChange={(e) => setBaseUrl(e.target.value)}
         placeholder="https://api.deepseek.com (по умолчанию)"
+        aria-invalid={!baseUrlValid}
       />
-      <p className="hint">
-        Меняй только если пользуешься совместимым прокси/шлюзом вместо прямого обращения к
-        api.deepseek.com.
-      </p>
+      {baseUrlValid ? (
+        <p className="hint">
+          Меняй только если пользуешься совместимым прокси/шлюзом вместо прямого обращения к
+          api.deepseek.com.
+        </p>
+      ) : (
+        <p className="hint error-text">Похоже на невалидный URL — нужен адрес вида https://...</p>
+      )}
 
       <label className="field-label" htmlFor="model">
         Модель (необязательно)
@@ -78,12 +88,23 @@ export default function Settings({ initial, onSave, onClose }: Props) {
       />
 
       <div className="actions">
+        {onDelete && (
+          <button
+            className="secondary danger"
+            onClick={() => {
+              onDelete();
+              setApiKey('');
+            }}
+          >
+            Удалить ключ
+          </button>
+        )}
         {onClose && (
           <button className="secondary" onClick={onClose}>
             Отмена
           </button>
         )}
-        <button className="primary" onClick={save} disabled={apiKey.trim().length === 0}>
+        <button className="primary" onClick={save} disabled={!canSave}>
           Сохранить
         </button>
       </div>

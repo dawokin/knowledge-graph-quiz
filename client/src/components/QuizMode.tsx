@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { gradeAnswer, generateQuiz } from '../api';
+import { matchesAnswer } from '../lib/normalize';
 import type { AnalyzedItem, QuizQuestion } from '../types';
 
 interface Props {
@@ -22,24 +23,33 @@ export default function QuizMode({ items, onExit }: Props) {
   const [results, setResults] = useState<Record<string, AnsweredState>>({});
   const [openAnswer, setOpenAnswer] = useState('');
   const [grading, setGrading] = useState(false);
+  const startedForItemsRef = useRef<AnalyzedItem[] | null>(null);
+  const requestTokenRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    // React StrictMode (dev only) intentionally double-invokes effects. Without
+    // this guard we'd fire two DeepSeek requests (and burn double the tokens)
+    // for a single quiz start; the ref persists across that mount/cleanup/remount
+    // pair so the second invocation for the same `items` reference is a no-op.
+    // A request token (rather than a boolean "cancelled" flag) makes sure the
+    // one real request's result still lands even though StrictMode also runs
+    // this effect's cleanup once immediately after the first invocation.
+    if (startedForItemsRef.current === items) return;
+    startedForItemsRef.current = items;
+
+    const token = ++requestTokenRef.current;
     setPhase('loading');
     generateQuiz(items, 8)
       .then((quiz) => {
-        if (cancelled) return;
+        if (requestTokenRef.current !== token) return;
         setQuestions(quiz.questions);
         setPhase('active');
       })
       .catch((err) => {
-        if (cancelled) return;
+        if (requestTokenRef.current !== token) return;
         setError(err instanceof Error ? err.message : 'Не удалось сгенерировать квиз.');
         setPhase('error');
       });
-    return () => {
-      cancelled = true;
-    };
   }, [items]);
 
   const current = questions[index];
@@ -47,7 +57,7 @@ export default function QuizMode({ items, onExit }: Props) {
 
   const answerMultipleChoice = (option: string) => {
     if (!current || currentResult) return;
-    const correct = option === current.correctAnswer;
+    const correct = matchesAnswer(option, current.correctAnswer);
     setResults((prev) => ({
       ...prev,
       [current.id]: { score: correct ? 1 : 0, feedback: current.explanation },
@@ -150,7 +160,7 @@ export default function QuizMode({ items, onExit }: Props) {
           {current.options.map((opt) => {
             let cls = 'option';
             if (currentResult) {
-              if (opt === current.correctAnswer) cls += ' correct';
+              if (matchesAnswer(opt, current.correctAnswer)) cls += ' correct';
               else if (currentResult.score === 0 && opt === openAnswer) cls += ' incorrect';
             }
             return (

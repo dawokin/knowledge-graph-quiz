@@ -4,23 +4,35 @@ import GraphView from './components/GraphView';
 import QuizMode from './components/QuizMode';
 import SettingsForm from './components/Settings';
 import { analyzeItems } from './api';
+import { clearGraph, loadGraph, saveGraph } from './graphStore';
 import { hasApiKey, loadSettings, saveSettings, type AppSettings } from './settings';
 import type { AnalysisResult, AnalyzedItem, RawItem } from './types';
 
 type View = 'settings' | 'input' | 'graph' | 'quiz';
 
+function initialView(settings: AppSettings): View {
+  if (!hasApiKey(settings)) return 'settings';
+  return loadGraph() ? 'graph' : 'input';
+}
+
 export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
-  const [view, setView] = useState<View>(() => (hasApiKey(loadSettings()) ? 'input' : 'settings'));
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>([]);
+  const [view, setView] = useState<View>(() => initialView(loadSettings()));
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(() => loadGraph()?.analysis ?? null);
+  const [analyzedItems, setAnalyzedItems] = useState<AnalyzedItem[]>(() => loadGraph()?.items ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSaveSettings = (next: AppSettings) => {
     saveSettings(next);
     setSettings(next);
-    setView('input');
+    setView(analysis ? 'graph' : 'input');
+  };
+
+  const handleDeleteKey = () => {
+    const cleared: AppSettings = { apiKey: '', baseUrl: '', model: settings.model };
+    saveSettings(cleared);
+    setSettings(cleared);
   };
 
   const handleSubmit = async (rawItems: RawItem[]) => {
@@ -35,6 +47,7 @@ export default function App() {
       }));
       setAnalysis(result);
       setAnalyzedItems(merged);
+      saveGraph({ analysis: result, items: merged });
       setView('graph');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось проанализировать материал.');
@@ -46,6 +59,7 @@ export default function App() {
   const reset = () => {
     setAnalysis(null);
     setAnalyzedItems([]);
+    clearGraph();
     setView('input');
     setError(null);
   };
@@ -62,7 +76,8 @@ export default function App() {
         <SettingsForm
           initial={settings}
           onSave={handleSaveSettings}
-          onClose={hasApiKey(settings) ? () => setView('input') : null}
+          onDelete={hasApiKey(settings) ? handleDeleteKey : null}
+          onClose={hasApiKey(settings) ? () => setView(analysis ? 'graph' : 'input') : null}
         />
       )}
       {view === 'input' && <InputPanel onSubmit={handleSubmit} loading={loading} error={error} />}

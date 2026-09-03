@@ -179,6 +179,19 @@ button:disabled {
   color: var(--accent);
 }
 
+.hint.error-text {
+  color: var(--bad);
+}
+
+.secondary.danger {
+  border-color: var(--bad);
+  color: #ff9b9b;
+}
+
+.secondary.danger:hover:not(:disabled) {
+  background: rgba(235, 87, 87, 0.12);
+}
+
 .gear-button {
   position: fixed;
   top: 1rem;
