@@ -1,4 +1,4 @@
-import { callToolForJson } from './anthropicClient';
+import { callToolForJson } from './aiClient';
 import { ANALYSIS_SCHEMA, GRADING_SCHEMA, QUIZ_SCHEMA } from './schemas';
 import type { AnalysisResult, AnalyzedItem, GradingResult, QuizSet, RawItem } from './types';
 

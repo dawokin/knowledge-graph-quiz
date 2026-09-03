@@ -15,20 +15,20 @@ export default function Settings({ initial, onSave, onClose }: Props) {
 
   const save = () => {
     if (apiKey.trim().length === 0) return;
-    onSave({ apiKey: apiKey.trim(), baseUrl: baseUrl.trim(), model: model.trim() || 'claude-sonnet-5' });
+    onSave({ apiKey: apiKey.trim(), baseUrl: baseUrl.trim(), model: model.trim() || 'deepseek-chat' });
   };
 
   return (
     <div className="panel settings-panel">
       <h1>Настройки</h1>
       <p className="subtitle">
-        Приложение работает полностью в браузере: запросы к Anthropic API уходят напрямую с твоего
-        устройства, ключ хранится только в этом браузере (localStorage) и никуда, кроме Anthropic
+        Приложение работает полностью в браузере: запросы к DeepSeek API уходят напрямую с твоего
+        устройства, ключ хранится только в этом браузере (localStorage) и никуда, кроме DeepSeek
         (или указанного тобой прокси), не отправляется.
       </p>
 
       <label className="field-label" htmlFor="api-key">
-        Anthropic API ключ
+        DeepSeek API ключ
       </label>
       <div className="key-input-row">
         <input
@@ -36,7 +36,7 @@ export default function Settings({ initial, onSave, onClose }: Props) {
           type={showKey ? 'text' : 'password'}
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder="sk-ant-..."
+          placeholder="sk-..."
           autoComplete="off"
         />
         <button className="secondary" onClick={() => setShowKey((v) => !v)}>
@@ -45,10 +45,10 @@ export default function Settings({ initial, onSave, onClose }: Props) {
       </div>
       <p className="hint">
         Получить ключ можно на{' '}
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-          console.anthropic.com
-        </a>
-        .
+        <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer">
+          platform.deepseek.com
+        </a>{' '}
+        — DeepSeek обычно доступен напрямую из России без VPN.
       </p>
 
       <label className="field-label" htmlFor="base-url">
@@ -59,11 +59,11 @@ export default function Settings({ initial, onSave, onClose }: Props) {
         type="text"
         value={baseUrl}
         onChange={(e) => setBaseUrl(e.target.value)}
-        placeholder="https://api.anthropic.com (по умолчанию)"
+        placeholder="https://api.deepseek.com (по умолчанию)"
       />
       <p className="hint">
-        Если прямой доступ к api.anthropic.com заблокирован в твоей сети/стране, укажи здесь адрес
-        совместимого прокси-эндпоинта (или подключись через VPN и оставь поле пустым).
+        Меняй только если пользуешься совместимым прокси/шлюзом вместо прямого обращения к
+        api.deepseek.com.
       </p>
 
       <label className="field-label" htmlFor="model">
@@ -74,7 +74,7 @@ export default function Settings({ initial, onSave, onClose }: Props) {
         type="text"
         value={model}
         onChange={(e) => setModel(e.target.value)}
-        placeholder="claude-sonnet-5"
+        placeholder="deepseek-chat"
       />
 
       <div className="actions">

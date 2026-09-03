@@ -4,9 +4,9 @@ export interface AppSettings {
   model: string;
 }
 
-const STORAGE_KEY = 'kgq_settings_v1';
+const STORAGE_KEY = 'kgq_settings_v2';
 
-const DEFAULT_MODEL = 'claude-sonnet-5';
+const DEFAULT_MODEL = 'deepseek-chat';
 
 export function loadSettings(): AppSettings {
   try {
